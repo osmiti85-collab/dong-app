@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>مدیریت دانگ هم‌اتاقی‌ها</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <style>
+        :root { --p: #1F497D; --bg: #f4f6f9; --txt: #2b2d42; }
+        body { font-family: Vazirmatn, sans-serif; background: var(--bg); color: var(--txt); margin: 0; padding-bottom: 70px; }
+        .header { background: var(--p); color: white; padding: 16px; text-align: center; border-radius: 0 0 20px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .card { background: white; margin: 12px; padding: 14px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+        .tab-btn { flex: 1; padding: 12px; border: none; background: none; font-weight: bold; color: #777; cursor: pointer; border-bottom: 3px solid transparent; font-family: Vazirmatn; }
+        .tab-btn.active { color: var(--p); border-bottom-color: var(--p); }
+        input, select { width: 100%; padding: 10px; margin: 6px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-family: Vazirmatn; }
+        .btn { background: var(--p); color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; font-size: 15px; cursor: pointer; }
+        .btn:disabled { background: #b0c4de; cursor: not-allowed; }
+        .row-dong { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
+        .dong-input { width: 110px !important; margin: 0 !important; text-align: left; }
+        .summary-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .net-pos { color: #27ae60; font-weight: bold; }
+        .net-neg { color: #e74c3c; font-weight: bold; }
+        .settle-box { background: #eef2ff; border-right: 4px solid var(--p); padding: 10px; margin: 8px 0; border-radius: 4px; font-size: 14px; }
+        .tx-card { border-right: 4px solid var(--p); position: relative; margin-bottom: 8px; cursor: pointer; transition: 0.2s; }
+        .tx-card:active { background: #f9f9f9; }
+        .tx-delete { position: absolute; left: 10px; top: 10px; color: #e74c3c; border: none; background: none; font-size: 16px; cursor: pointer; z-index: 2; }
+        .nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; border-top: 1px solid #ddd; z-index: 10; }
+        .balance-status { padding: 10px; border-radius: 6px; text-align: center; font-weight: bold; margin-top: 10px; font-size: 14px; }
+        .status-ok { background: #d4edda; color: #155724; }
+        .status-error { background: #f8d7da; color: #721c24; }
+        
+        /* Modal Popup */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal-content { background: white; width: 90%; max-width: 400px; padding: 20px; border-radius: 12px; position: relative; }
+        .close-modal { position: absolute; left: 15px; top: 15px; font-size: 20px; cursor: pointer; color: #777; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h3 style="margin:0">سیستم دانگ هم‌اتاقی‌ها</h3>
+    </div>
+
+    <div class="nav">
+        <button class="tab-btn active" onclick="showTab('add', this)">ثبت خرید</button>
+        <button class="tab-btn" onclick="showTab('list', this); loadTx();">لیست هزینه‌ها</button>
+        <button class="tab-btn" onclick="showTab('stats', this); loadSummary();">تراز و تسویه</button>
+    </div>
+
+    <div id="tab-add" class="tab-content">
+        <div class="card">
+            <h4>ثبت هزینه جدید</h4>
+            <input type="text" id="desc" placeholder="شرح خرید (مثلاً میوه، نان، قبض)">
+            <input type="number" id="amount" placeholder="مبلغ کل (تومان)" oninput="distributeDong(); validateBalance();">
+            <label style="font-size:13px; color:#555;">پرداخت‌کننده:</label>
+            <select id="buyer">
+                <option value="مهدی">مهدی</option>
+                <option value="مهرداد">مهرداد</option>
+                <option value="محمد">محمد</option>
+                <option value="علی">علی</option>
+            </select>
+            <hr style="border:0; border-top:1px dashed #ddd; margin:10px 0;">
+            <div style="font-size:12px; color:#666; margin-bottom:6px;">سهم هر فرد (تومان):</div>
+            <div id="dong-inputs">
+                <div class="row-dong"><span>مهدی:</span><input type="number" class="dong-val dong-input" id="d_mahdi" oninput="validateBalance()"></div>
+                <div class="row-dong"><span>مهرداد:</span><input type="number" class="dong-val dong-input" id="d_mehrdad" oninput="validateBalance()"></div>
+                <div class="row-dong"><span>محمد:</span><input type="number" class="dong-val dong-input" id="d_mohammad" oninput="validateBalance()"></div>
+                <div class="row-dong"><span>علی:</span><input type="number" class="dong-val dong-input" id="d_ali" oninput="validateBalance()"></div>
+            </div>
+            
+            <div id="balance-msg" class="balance-status status-error">مبلغ کل و مجموع دنگ‌ها هم‌خوان نیستند!</div>
+            
+            <button class="btn" id="submit-btn" style="margin-top:15px" onclick="saveTx()" disabled>ثبت هزینه</button>
+        </div>
+    </div>
+
+    <div id="tab-list" class="tab-content" style="display:none">
+        <div id="tx-list"></div>
+    </div>
+
+    <div id="tab-stats" class="tab-content" style="display:none">
+        <div class="card" id="balance-list"></div>
+        <div class="card">
+            <h4>راهنمای تسویه حساب (کی به کی)</h4>
+            <div id="settle-list"></div>
+        </div>
+    </div>
+
+    <!-- Modal Details -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <h3 id="m-title" style="margin-top:0; color:var(--p)">جزئیات خرید</h3>
+            <p><b>مبلغ کل:</b> <span id="m-amount"></span> تومان</p>
+            <p><b>پرداخت‌کننده:</b> <span id="m-buyer"></span></p>
+            <hr style="border:0; border-top:1px solid #eee">
+            <div style="font-weight:bold; margin-bottom:8px;">سهم هر نفر (دنگ):</div>
+            <div id="m-dongs"></div>
+        </div>
+    </div>
+
+    <script>
+        let cachedTxs = [];
+
+        function showTab(t, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + t).style.display = 'block';
+            btn.classList.add('active');
+        }
+
+        function distributeDong() {
+            let amt = parseFloat(document.getElementById('amount').value);
+            if(isNaN(amt)) {
+                document.querySelectorAll('.dong-val').forEach(el => el.value = '');
+                validateBalance();
+                return;
+            }
+            let share = Math.round(amt / 4);
+            document.getElementById('d_mahdi').value = share;
+            document.getElementById('d_mehrdad').value = share;
+            document.getElementById('d_mohammad').value = share;
+            // Handle remainder for exact balance matching
+            let totalThree = share * 3;
+            document.getElementById('d_ali').value = amt - totalThree;
+            validateBalance();
+        }
+
+        function validateBalance() {
+            let amount = parseFloat(document.getElementById('amount').value) || 0;
+            let d1 = parseFloat(document.getElementById('d_mahdi').value) || 0;
+            let d2 = parseFloat(document.getElementById('d_mehrdad').value) || 0;
+            let d3 = parseFloat(document.getElementById('d_mohammad').value) || 0;
+            let d4 = parseFloat(document.getElementById('d_ali').value) || 0;
+            
+            let sumDongs = d1 + d2 + d3 + d4;
+            let msgBox = document.getElementById('balance-msg');
+            let subBtn = document.getElementById('submit-btn');
+
+            if (amount > 0 && sumDongs === amount) {
+                msgBox.className = 'balance-status status-ok';
+                msgBox.innerHTML = 'تراز ✔ (جمع دنگ‌ها با مبلغ کل برابر است)';
+                subBtn.disabled = false;
+            } else {
+                msgBox.className = 'balance-status status-error';
+                msgBox.innerHTML = `اختلاف تراز ❌ (مبلغ: ${amount.toLocaleString()} | مجموع دنگ‌ها: ${sumDongs.toLocaleString()})`;
+                subBtn.disabled = true;
+            }
+        }
+
+        async function saveTx() {
+            let data = {
+                description: document.getElementById('desc').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                buyer: document.getElementById('buyer').value,
+                dong_mahdi: parseFloat(document.getElementById('d_mahdi').value) || 0,
+                dong_mehrdad: parseFloat(document.getElementById('d_mehrdad').value) || 0,
+                dong_mohammad: parseFloat(document.getElementById('d_mohammad').value) || 0,
+                dong_ali: parseFloat(document.getElementById('d_ali').value) || 0
+            };
+            await fetch('/api/transactions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            alert('با موفقیت ثبت شد');
+            document.getElementById('desc').value = '';
+            document.getElementById('amount').value = '';
+            document.querySelectorAll('.dong-val').forEach(el => el.value = '');
+            validateBalance();
+        }
+
+        async function loadTx() {
+            let res = await fetch('/api/transactions');
+            cachedTxs = await res.json();
+            let html = '';
+            cachedTxs.forEach((tx, idx) => {
+                html += `<div class="card tx-card" onclick="openModal(${idx})">
+                    <button class="tx-delete" onclick="event.stopPropagation(); deleteTx(${tx.id})">🗑</button>
+                    <strong>${tx.description}</strong><br>
+                    <small>${tx.amount.toLocaleString()} تومان - پرداخت: ${tx.buyer}</small>
+                </div>`;
+            });
+            document.getElementById('tx-list').innerHTML = html || '<p style="text-align:center; padding:20px;">هیچ هزینه‌ای ثبت نشده است</p>';
+        }
+
+        function openModal(idx) {
+            let tx = cachedTxs[idx];
+            document.getElementById('m-title').innerText = tx.description;
+            document.getElementById('m-amount').innerText = tx.amount.toLocaleString();
+            document.getElementById('m-buyer').innerText = tx.buyer;
+            
+            let dHtml = `
+                <div class="summary-item"><span>مهدی:</span> <b>${tx.dong_mahdi.toLocaleString()} تومان</b></div>
+                <div class="summary-item"><span>مهرداد:</span> <b>${tx.dong_mehrdad.toLocaleString()} تومان</b></div>
+                <div class="summary-item"><span>محمد:</span> <b>${tx.dong_mohammad.toLocaleString()} تومان</b></div>
+                <div class="summary-item"><span>علی:</span> <b>${tx.dong_ali.toLocaleString()} تومان</b></div>
+            `;
+            document.getElementById('m-dongs').innerHTML = dHtml;
+            document.getElementById('detailModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').style.display = 'none';
+        }
+
+        async function deleteTx(id) {
+            if(confirm('این ردیف حذف شود؟')) {
+                await fetch('/api/delete/' + id, {method: 'POST'});
+                loadTx();
+            }
+        }
+
+        async function loadSummary() {
+            let res = await fetch('/api/summary');
+            let data = await res.json();
+            
+            let bHtml = '<h4>وضعیت تراز مالی</h4>';
+            data.balances.forEach(b => {
+                let netClass = b.net >= 0 ? 'net-pos' : 'net-neg';
+                let sign = b.net > 0 ? '+' : '';
+                bHtml += `<div class="summary-item">
+                    <span>${b.name}</span>
+                    <span class="${netClass}">${sign}${Math.round(b.net).toLocaleString()} تومان</span>
+                </div>`;
+            });
+            document.getElementById('balance-list').innerHTML = bHtml;
+
+            let sHtml = '';
+            data.settlements.forEach(s => {
+                sHtml += `<div class="settle-box">
+                    <b>${s.from}</b> باید مبلغ <b>${s.amount.toLocaleString()}</b> تومان به <b>${s.to}</b> بپردازد.
+                </div>`;
+            });
+            document.getElementById('settle-list').innerHTML = sHtml || '<p style="color:#27ae60">تمامی حساب‌ها کاملاً تسویه است.</p>';
+        }
+    </script>
+</body>
+</html>
